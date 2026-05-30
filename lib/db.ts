@@ -1,7 +1,9 @@
-// Supabase client (Service Role key, server-side only).
-// Storage для истории выданных лицензий: search, audit, продление.
+// Neon Postgres client (Vercel-friendly serverless).
+//
+// @neondatabase/serverless использует WebSocket к Neon Pooler — работает
+// в Vercel Edge/Node без issue'ев с connection-limits классического pg.
 
-import { createClient } from '@supabase/supabase-js'
+import { neon } from '@neondatabase/serverless'
 
 export interface IssuedLicense {
   id: string
@@ -16,41 +18,45 @@ export interface IssuedLicense {
   issued_by?: string | null
 }
 
-let _client: ReturnType<typeof createClient> | null = null
-
-function client() {
-  if (_client) return _client
-  const url = process.env.SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_KEY
-  if (!url || !key) throw new Error('SUPABASE_URL + SUPABASE_SERVICE_KEY env required')
-  _client = createClient(url, key, { auth: { persistSession: false } })
-  return _client
+function sql() {
+  const url = process.env.DATABASE_URL
+  if (!url) throw new Error('DATABASE_URL env required (Neon Postgres connection string)')
+  return neon(url)
 }
 
 export async function insertLicense(row: Omit<IssuedLicense, 'id'>): Promise<void> {
-  // Supabase v2 generic types требуют Database codegen, у нас его нет —
-  // используем `any`-каст таблицы. Шейп закреплён в supabase-schema.sql.
-  const tbl = client().from('issued_licenses') as any
-  const { error } = await tbl.insert([row])
-  if (error) throw error
+  const q = sql()
+  await q`
+    INSERT INTO issued_licenses
+      (machine_id, restaurant_id, restaurant_name, edition,
+       expires_at, issued_at, token, notes, issued_by)
+    VALUES
+      (${row.machine_id}, ${row.restaurant_id}, ${row.restaurant_name ?? null},
+       ${row.edition}, ${row.expires_at}, ${row.issued_at}, ${row.token},
+       ${row.notes ?? null}, ${row.issued_by ?? null})
+  `
 }
 
-export async function listRecentLicenses(limit = 20): Promise<IssuedLicense[]> {
-  const { data, error } = await client()
-    .from('issued_licenses')
-    .select('*')
-    .order('issued_at', { ascending: false })
-    .limit(limit)
-  if (error) throw error
-  return (data ?? []) as unknown as IssuedLicense[]
+export async function listRecentLicenses(limit = 50): Promise<IssuedLicense[]> {
+  const q = sql()
+  const rows = await q`
+    SELECT id, machine_id, restaurant_id, restaurant_name, edition,
+           expires_at, issued_at, token, notes, issued_by
+    FROM issued_licenses
+    ORDER BY issued_at DESC
+    LIMIT ${limit}
+  ` as unknown as IssuedLicense[]
+  return rows
 }
 
 export async function listLicensesByRestaurant(restaurantId: string): Promise<IssuedLicense[]> {
-  const { data, error } = await client()
-    .from('issued_licenses')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .order('issued_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as unknown as IssuedLicense[]
+  const q = sql()
+  const rows = await q`
+    SELECT id, machine_id, restaurant_id, restaurant_name, edition,
+           expires_at, issued_at, token, notes, issued_by
+    FROM issued_licenses
+    WHERE restaurant_id = ${restaurantId}
+    ORDER BY issued_at DESC
+  ` as unknown as IssuedLicense[]
+  return rows
 }

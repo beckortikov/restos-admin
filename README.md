@@ -18,42 +18,75 @@ Settings → Лицензия → копирует:                Login → ф�
 Settings → Лицензия → "Ввести ключ" → вставляет токен → backend verify (offline)
 ```
 
-## Setup
+## Стек
+
+- Next.js 15 (App Router)
+- Neon Postgres (`@neondatabase/serverless`)
+- Ed25519 sign через Node native `crypto.sign('ed25519', ...)`
+- Tailwind CSS
+- bcrypt для пароля + HMAC cookie для session
+
+## Local dev
 
 ```bash
 pnpm install
-
-# 1. Сгенерируй keypair (один раз, из restos-v4):
-cd ../restos-v4/server && go run ./cmd/license-gen keypair
-# → PUBLIC_KEY=... PRIVATE_KEY=...
-# PUBLIC_KEY → restos-server бинарь (LICENSE_PUBLIC_KEY env)
-# PRIVATE_KEY → этот .env
-
-# 2. Создай Supabase project + примени schema:
-psql $SUPABASE_DB_URL < supabase-schema.sql
-# Или: открой supabase.com → SQL Editor → вставь содержимое supabase-schema.sql
-
-# 3. Скопируй .env.example → .env, заполни значения
-
-# 4. Запусти dev:
 pnpm dev
 # → http://localhost:4000
+```
 
-# 5. Сгенерируй bcrypt-hash для ADMIN_PASSWORD_HASH:
-node -e "console.log(require('bcryptjs').hashSync('your-password', 10))"
+`.env` уже создан с рабочими ключами (см. `.env.example` для формата).
+
+**Дефолтный пароль:** `restos2026admin` — **поменяй сразу** через:
+
+```bash
+node -e "console.log(require('bcryptjs').hashSync('твой-новый-пароль', 10))"
+# → bcrypt-hash, скопируй в .env / Vercel env как ADMIN_PASSWORD_HASH
 ```
 
 ## Deploy на Vercel
 
-1. Push в GitHub repo `restos-admin`.
-2. Vercel → New Project → Import from GitHub.
-3. Settings → Environment Variables → добавь все из `.env.example`.
-4. Deploy.
+1. Repo уже push'нут в `https://github.com/beckortikov/restos-admin`.
+2. Vercel → New Project → Import from GitHub → выбери `beckortikov/restos-admin`.
+3. Framework Preset: **Next.js** (auto).
+4. Environment Variables — добавь:
+
+   | Key | Value |
+   |---|---|
+   | `ADMIN_PASSWORD_HASH` | bcrypt-hash твоего пароля |
+   | `SESSION_SECRET` | random ≥32 байт (см. `.env` для текущего) |
+   | `LICENSE_PRIVATE_KEY` | Ed25519 private (см. `.env`) |
+   | `DATABASE_URL` | Neon connection string (см. `.env`) |
+
+5. **Deploy.**
+
+## Перегенерация Ed25519 keypair
+
+Если нужно сменить keypair (compromise, ротация):
+
+```bash
+cd ../restos-v4/server && go run ./cmd/license-gen keypair
+# → PUBLIC_KEY=... PRIVATE_KEY=...
+```
+
+- `PRIVATE_KEY` → `.env` тут + Vercel env vars.
+- `PUBLIC_KEY` → restos-server бинарь через `LICENSE_PUBLIC_KEY` env (или вшить
+  в `desktop/main.js` при build'е installer'а).
+
+⚠️ После смены keypair все ранее выписанные токены **перестанут работать** —
+клиенты должны заново активироваться. Делай только при компрометации.
+
+## Neon schema
+
+Применить один раз (уже сделано для текущего проекта):
+
+```bash
+psql "$DATABASE_URL" -f schema.sql
+```
 
 ## Безопасность
 
-- `LICENSE_PRIVATE_KEY` живёт ТОЛЬКО в Vercel env, никогда не commit'ится.
+- `LICENSE_PRIVATE_KEY` живёт ТОЛЬКО в `.env` и Vercel env, никогда не commit'ится.
 - `ADMIN_PASSWORD_HASH` — bcrypt-hash, не plain password.
-- `SESSION_SECRET` — random ≥32 байт, используется для HMAC cookie.
+- `SESSION_SECRET` — random ≥32 байт, HMAC cookie sign.
 - Все routes под `/api/issue-license` + `/api/licenses` проверяют session.
-- Supabase Service Role key — server-side only, никогда не уходит в client bundle.
+- Neon DATABASE_URL содержит пароль — `.gitignore` обязан исключать `.env`.

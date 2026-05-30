@@ -1,4 +1,4 @@
--- Применить один раз в Supabase SQL Editor.
+-- Применить один раз в Neon SQL Editor (console.neon.tech → SQL Editor).
 -- Таблица для аудита выданных лицензий.
 
 CREATE TABLE IF NOT EXISTS issued_licenses (
@@ -18,6 +18,5 @@ CREATE INDEX IF NOT EXISTS idx_issued_licenses_restaurant ON issued_licenses(res
 CREATE INDEX IF NOT EXISTS idx_issued_licenses_machine ON issued_licenses(machine_id);
 CREATE INDEX IF NOT EXISTS idx_issued_licenses_issued_at ON issued_licenses(issued_at DESC);
 
--- Service Role обходит RLS, но включим для безопасности.
-ALTER TABLE issued_licenses ENABLE ROW LEVEL SECURITY;
--- Никаких policies → только service-key может читать/писать.
+-- Neon не использует Supabase RLS — доступ контролируется connection string.
+-- В Vercel живёт только DATABASE_URL, никаких anonymous-ключей нет.
