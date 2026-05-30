@@ -6,6 +6,7 @@ export default function IssueForm() {
   const [machineId, setMachineId] = useState('')
   const [restaurantId, setRestaurantId] = useState('')
   const [restaurantName, setRestaurantName] = useState('')
+  const [accountId, setAccountId] = useState('')
   const [edition, setEdition] = useState<'start' | 'business' | 'pro'>('pro')
   const [days, setDays] = useState(365)
   const [notes, setNotes] = useState('')
@@ -30,6 +31,7 @@ export default function IssueForm() {
           edition,
           days,
           notes: notes.trim() || undefined,
+          account_id: accountId.trim() || undefined,
         }),
       })
       const data = await res.json()
@@ -80,6 +82,19 @@ export default function IssueForm() {
             placeholder="My Cafe, Душанбе"
             className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+        <div className="md:col-span-2">
+          <label className="text-xs font-medium text-gray-600 uppercase block mb-1">
+            Account ID (опц.) — для сети
+          </label>
+          <input
+            value={accountId} onChange={e => setAccountId(e.target.value)}
+            placeholder="Оставь пустым для одиночного ресторана. Или UUID владельца сети."
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-[10px] text-gray-500 mt-1">
+            Если выписываешь второй+ ресторан тому же владельцу — скопируй account_id из его предыдущей лицензии (видна в истории ниже). Будущий Owner Dashboard сгруппирует.
+          </p>
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600 uppercase block mb-1">Тариф</label>

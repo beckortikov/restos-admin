@@ -16,6 +16,7 @@ export interface IssuedLicense {
   token: string
   notes?: string | null
   issued_by?: string | null
+  account_id?: string | null  // Phase 1 multi-branch
 }
 
 function sql() {
@@ -29,11 +30,11 @@ export async function insertLicense(row: Omit<IssuedLicense, 'id'>): Promise<voi
   await q`
     INSERT INTO issued_licenses
       (machine_id, restaurant_id, restaurant_name, edition,
-       expires_at, issued_at, token, notes, issued_by)
+       expires_at, issued_at, token, notes, issued_by, account_id)
     VALUES
       (${row.machine_id}, ${row.restaurant_id}, ${row.restaurant_name ?? null},
        ${row.edition}, ${row.expires_at}, ${row.issued_at}, ${row.token},
-       ${row.notes ?? null}, ${row.issued_by ?? null})
+       ${row.notes ?? null}, ${row.issued_by ?? null}, ${row.account_id ?? null})
   `
 }
 
@@ -41,7 +42,7 @@ export async function listRecentLicenses(limit = 50): Promise<IssuedLicense[]> {
   const q = sql()
   const rows = await q`
     SELECT id, machine_id, restaurant_id, restaurant_name, edition,
-           expires_at, issued_at, token, notes, issued_by
+           expires_at, issued_at, token, notes, issued_by, account_id
     FROM issued_licenses
     ORDER BY issued_at DESC
     LIMIT ${limit}
@@ -53,9 +54,25 @@ export async function listLicensesByRestaurant(restaurantId: string): Promise<Is
   const q = sql()
   const rows = await q`
     SELECT id, machine_id, restaurant_id, restaurant_name, edition,
-           expires_at, issued_at, token, notes, issued_by
+           expires_at, issued_at, token, notes, issued_by, account_id
     FROM issued_licenses
     WHERE restaurant_id = ${restaurantId}
+    ORDER BY issued_at DESC
+  ` as unknown as IssuedLicense[]
+  return rows
+}
+
+/**
+ * listLicensesByAccount — все рестораны одного владельца сети (Phase 1).
+ * Используется будущим Owner Dashboard для drill-down.
+ */
+export async function listLicensesByAccount(accountId: string): Promise<IssuedLicense[]> {
+  const q = sql()
+  const rows = await q`
+    SELECT id, machine_id, restaurant_id, restaurant_name, edition,
+           expires_at, issued_at, token, notes, issued_by, account_id
+    FROM issued_licenses
+    WHERE account_id = ${accountId}
     ORDER BY issued_at DESC
   ` as unknown as IssuedLicense[]
   return rows

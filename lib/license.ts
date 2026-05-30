@@ -17,6 +17,7 @@ export interface Payload {
   exp: string                 // expires_at (RFC3339)
   ed?: Edition                // edition
   mid?: string                // machine_id (fingerprint железа)
+  aid?: string                // account_id (сеть владельца, Phase 1 multi-branch)
 }
 
 export const CURRENT_VERSION = 1
@@ -37,6 +38,7 @@ export function signToken(privBase64Std: string, p: Omit<Payload, 'v'> & { v?: n
   }
   if (p.ed) payload.ed = p.ed
   if (p.mid) payload.mid = p.mid
+  if (p.aid) payload.aid = p.aid
 
   const body = JSON.stringify(payload)
   const bodyEnc = base64UrlEncode(Buffer.from(body, 'utf-8'))

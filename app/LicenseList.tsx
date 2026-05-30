@@ -11,6 +11,7 @@ interface Item {
   expires_at: string
   issued_at: string
   notes: string | null
+  account_id: string | null
 }
 
 export default function LicenseList() {
@@ -47,6 +48,7 @@ export default function LicenseList() {
               <tr className="text-xs text-gray-500 uppercase border-b">
                 <th className="text-left py-2 pr-3">Когда</th>
                 <th className="text-left py-2 pr-3">Ресторан</th>
+                <th className="text-left py-2 pr-3">Сеть</th>
                 <th className="text-left py-2 pr-3">Машина</th>
                 <th className="text-left py-2 pr-3">Тариф</th>
                 <th className="text-left py-2">До</th>
@@ -61,6 +63,19 @@ export default function LicenseList() {
                   <td className="py-2 pr-3">
                     <div className="text-gray-900">{it.restaurant_name ?? '—'}</div>
                     <div className="text-xs text-gray-400 font-mono">{it.restaurant_id.slice(0, 8)}…</div>
+                  </td>
+                  <td className="py-2 pr-3">
+                    {it.account_id ? (
+                      <button
+                        onClick={() => navigator.clipboard.writeText(it.account_id!)}
+                        title={`Скопировать: ${it.account_id}`}
+                        className="text-xs font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded hover:bg-purple-100"
+                      >
+                        {it.account_id.slice(0, 8)}…
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
                   </td>
                   <td className="py-2 pr-3 font-mono text-xs text-gray-600">{it.machine_id}</td>
                   <td className="py-2 pr-3">

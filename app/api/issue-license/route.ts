@@ -10,6 +10,7 @@ interface Body {
   edition?: Edition
   days?: number
   notes?: string
+  account_id?: string  // Phase 1 multi-branch — владелец сети
 }
 
 export async function POST(req: Request) {
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
       exp: rfc3339(expires),
       ed: edition,
       mid: b.machine_id.trim(),
+      aid: b.account_id?.trim() || undefined,
     })
   } catch (e: any) {
     return NextResponse.json({ error: 'sign failed: ' + (e?.message ?? e) }, { status: 500 })
@@ -61,6 +63,7 @@ export async function POST(req: Request) {
       token,
       notes: b.notes?.trim() || null,
       issued_by: 'admin',
+      account_id: b.account_id?.trim() || null,
     })
   } catch (e: any) {
     // Если БД упала — токен всё равно валиден, просто без audit-записи.

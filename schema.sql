@@ -11,12 +11,17 @@ CREATE TABLE IF NOT EXISTS issued_licenses (
   issued_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   token           TEXT NOT NULL,
   notes           TEXT,
-  issued_by       TEXT
+  issued_by       TEXT,
+  account_id      TEXT  -- Phase 1 multi-branch: владелец сети, NULL для одиночных
 );
 
 CREATE INDEX IF NOT EXISTS idx_issued_licenses_restaurant ON issued_licenses(restaurant_id);
 CREATE INDEX IF NOT EXISTS idx_issued_licenses_machine ON issued_licenses(machine_id);
 CREATE INDEX IF NOT EXISTS idx_issued_licenses_issued_at ON issued_licenses(issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_issued_licenses_account_id ON issued_licenses(account_id) WHERE account_id IS NOT NULL;
+
+-- Idempotent ALTER чтобы накатить на уже созданную БД (Phase 1 add).
+ALTER TABLE issued_licenses ADD COLUMN IF NOT EXISTS account_id TEXT;
 
 -- Neon не использует Supabase RLS — доступ контролируется connection string.
 -- В Vercel живёт только DATABASE_URL, никаких anonymous-ключей нет.
