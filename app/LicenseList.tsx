@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { PrefillData } from './LicensePageClient'
 
 interface Item {
   id: string
@@ -14,7 +15,24 @@ interface Item {
   account_id: string | null
 }
 
-export default function LicenseList() {
+interface Props {
+  onExtend?: (data: Omit<PrefillData, 'nonce'>) => void
+}
+
+const DAY_MS = 86400000
+
+function statusBadge(expiresAt: string) {
+  const diffDays = (new Date(expiresAt).getTime() - Date.now()) / DAY_MS
+  if (diffDays <= 0) {
+    return { cls: 'bg-red-100 text-red-800', label: 'истекла' }
+  }
+  if (diffDays <= 7) {
+    return { cls: 'bg-amber-100 text-amber-800', label: `< ${Math.max(1, Math.ceil(diffDays))} дн.` }
+  }
+  return { cls: 'bg-green-100 text-green-800', label: 'активна' }
+}
+
+export default function LicenseList({ onExtend }: Props) {
   const [items, setItems] = useState<Item[]>([])
   const [error, setError] = useState('')
 
@@ -24,7 +42,12 @@ export default function LicenseList() {
       const res = await fetch('/api/licenses')
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? 'load failed')
-      setItems(data.items ?? [])
+      const sorted = [...(data.items ?? [])].sort((a: Item, b: Item) => {
+        const eb = new Date(b.expires_at).getTime() - new Date(a.expires_at).getTime()
+        if (eb !== 0) return eb
+        return new Date(b.issued_at).getTime() - new Date(a.issued_at).getTime()
+      })
+      setItems(sorted)
     } catch (e: any) {
       setError(e?.message ?? String(e))
     }
@@ -51,43 +74,67 @@ export default function LicenseList() {
                 <th className="text-left py-2 pr-3">Сеть</th>
                 <th className="text-left py-2 pr-3">Машина</th>
                 <th className="text-left py-2 pr-3">Тариф</th>
-                <th className="text-left py-2">До</th>
+                <th className="text-left py-2 pr-3">До</th>
+                <th className="text-left py-2 pr-3">Статус</th>
+                <th className="text-right py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {items.map(it => (
-                <tr key={it.id} className="border-b last:border-0">
-                  <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">
-                    {new Date(it.issued_at).toLocaleDateString('ru-RU')}
-                  </td>
-                  <td className="py-2 pr-3">
-                    <div className="text-gray-900">{it.restaurant_name ?? '—'}</div>
-                    <div className="text-xs text-gray-400 font-mono">{it.restaurant_id.slice(0, 8)}…</div>
-                  </td>
-                  <td className="py-2 pr-3">
-                    {it.account_id ? (
+              {items.map(it => {
+                const st = statusBadge(it.expires_at)
+                return (
+                  <tr key={it.id} className="border-b last:border-0">
+                    <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">
+                      {new Date(it.issued_at).toLocaleDateString('ru-RU')}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <div className="text-gray-900">{it.restaurant_name ?? '—'}</div>
+                      <div className="text-xs text-gray-400 font-mono">{it.restaurant_id.slice(0, 8)}…</div>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {it.account_id ? (
+                        <button
+                          onClick={() => navigator.clipboard.writeText(it.account_id!)}
+                          title={`Скопировать: ${it.account_id}`}
+                          className="text-xs font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded hover:bg-purple-100"
+                        >
+                          {it.account_id.slice(0, 8)}…
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs text-gray-600">{it.machine_id}</td>
+                    <td className="py-2 pr-3">
+                      <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-semibold uppercase">
+                        {it.edition}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">
+                      {new Date(it.expires_at).toLocaleDateString('ru-RU')}
+                    </td>
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${st.cls}`}>
+                        {st.label}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right whitespace-nowrap">
                       <button
-                        onClick={() => navigator.clipboard.writeText(it.account_id!)}
-                        title={`Скопировать: ${it.account_id}`}
-                        className="text-xs font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded hover:bg-purple-100"
+                        onClick={() => onExtend?.({
+                          machine_id: it.machine_id,
+                          restaurant_id: it.restaurant_id,
+                          restaurant_name: it.restaurant_name ?? '',
+                          account_id: it.account_id ?? '',
+                          edition: (it.edition as 'start' | 'business' | 'pro'),
+                        })}
+                        className="text-xs px-2 py-1 rounded bg-gray-900 text-white hover:bg-gray-800"
                       >
-                        {it.account_id.slice(0, 8)}…
+                        + Продлить
                       </button>
-                    ) : (
-                      <span className="text-xs text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 font-mono text-xs text-gray-600">{it.machine_id}</td>
-                  <td className="py-2 pr-3">
-                    <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-semibold uppercase">
-                      {it.edition}
-                    </span>
-                  </td>
-                  <td className="py-2 text-gray-600 whitespace-nowrap">
-                    {new Date(it.expires_at).toLocaleDateString('ru-RU')}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

@@ -1,24 +1,76 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { PrefillData } from './LicensePageClient'
 
-export default function IssueForm() {
+interface Props {
+  prefill?: PrefillData | null
+  onConsumePrefill?: () => void
+}
+
+type ExpiryMode = 'days' | 'date'
+
+export default function IssueForm({ prefill, onConsumePrefill }: Props) {
   const [machineId, setMachineId] = useState('')
   const [restaurantId, setRestaurantId] = useState('')
   const [restaurantName, setRestaurantName] = useState('')
   const [accountId, setAccountId] = useState('')
   const [edition, setEdition] = useState<'start' | 'business' | 'pro'>('pro')
+  const [expiryMode, setExpiryMode] = useState<ExpiryMode>('days')
   const [days, setDays] = useState(365)
+  const [expiryDate, setExpiryDate] = useState('')
   const [notes, setNotes] = useState('')
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isExtending, setIsExtending] = useState(false)
+
+  useEffect(() => {
+    if (!prefill) return
+    setMachineId(prefill.machine_id)
+    setRestaurantId(prefill.restaurant_id)
+    setRestaurantName(prefill.restaurant_name)
+    setAccountId(prefill.account_id)
+    setEdition(prefill.edition as any)
+    setNotes('')
+    setToken('')
+    setError('')
+    setIsExtending(true)
+    onConsumePrefill?.()
+  }, [prefill, onConsumePrefill])
+
+  function resetExtend() {
+    setIsExtending(false)
+    setMachineId('')
+    setRestaurantId('')
+    setRestaurantName('')
+    setAccountId('')
+    setNotes('')
+    setToken('')
+    setError('')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setToken('')
+
+    let effectiveDays = days
+    if (expiryMode === 'date') {
+      if (!expiryDate) {
+        setError('Укажите дату истечения')
+        return
+      }
+      const target = new Date(expiryDate + 'T23:59:59')
+      const diff = Math.ceil((target.getTime() - Date.now()) / 86400000)
+      if (diff < 1) {
+        setError('Дата должна быть в будущем (минимум +1 день)')
+        return
+      }
+      effectiveDays = diff
+    }
+
     setSubmitting(true)
     try {
       const res = await fetch('/api/issue-license', {
@@ -29,7 +81,7 @@ export default function IssueForm() {
           restaurant_id: restaurantId.trim(),
           restaurant_name: restaurantName.trim() || undefined,
           edition,
-          days,
+          days: effectiveDays,
           notes: notes.trim() || undefined,
           account_id: accountId.trim() || undefined,
         }),
@@ -53,9 +105,24 @@ export default function IssueForm() {
 
   return (
     <section className="bg-white rounded-2xl shadow p-6">
-      <h2 className="font-bold text-gray-900 mb-1">Выдать лицензию</h2>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="font-bold text-gray-900">
+          {isExtending ? 'Продлить лицензию' : 'Выдать лицензию'}
+        </h2>
+        {isExtending && (
+          <button
+            type="button"
+            onClick={resetExtend}
+            className="text-xs text-gray-500 hover:text-gray-900 underline"
+          >
+            Сбросить (новая лицензия)
+          </button>
+        )}
+      </div>
       <p className="text-sm text-gray-500 mb-4">
-        Введите данные от клиента (machine_id + restaurant_id из его экрана активации).
+        {isExtending
+          ? 'Поля заполнены из существующей лицензии. Выбери новый срок и выдай.'
+          : 'Введите данные от клиента (machine_id + restaurant_id из его экрана активации).'}
       </p>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -108,11 +175,39 @@ export default function IssueForm() {
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 uppercase block mb-1">Срок (дней)</label>
-          <input
-            type="number" min={1} max={3650} value={days} onChange={e => setDays(Number(e.target.value))}
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <label className="text-xs font-medium text-gray-600 uppercase block mb-1">Срок</label>
+          <div className="flex gap-2">
+            <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden shrink-0">
+              <button
+                type="button"
+                onClick={() => setExpiryMode('days')}
+                className={`px-3 py-2 text-xs font-semibold ${expiryMode === 'days' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                Дней
+              </button>
+              <button
+                type="button"
+                onClick={() => setExpiryMode('date')}
+                className={`px-3 py-2 text-xs font-semibold border-l border-gray-300 ${expiryMode === 'date' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                До даты
+              </button>
+            </div>
+            {expiryMode === 'days' ? (
+              <input
+                type="number" min={1} max={3650} value={days} onChange={e => setDays(Number(e.target.value))}
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            ) : (
+              <input
+                type="date"
+                value={expiryDate}
+                onChange={e => setExpiryDate(e.target.value)}
+                min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
+          </div>
         </div>
         <div className="md:col-span-2">
           <label className="text-xs font-medium text-gray-600 uppercase block mb-1">Заметка (опц.)</label>
@@ -127,7 +222,7 @@ export default function IssueForm() {
             type="submit" disabled={submitting}
             className="w-full py-2.5 rounded-lg bg-gray-900 text-white font-semibold hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
-            {submitting ? 'Подписываю…' : 'Выдать ключ'}
+            {submitting ? 'Подписываю…' : isExtending ? 'Продлить' : 'Выдать ключ'}
           </button>
         </div>
       </form>

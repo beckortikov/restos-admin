@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { isAuthed } from '@/lib/auth'
-import IssueForm from './IssueForm'
-import LicenseList from './LicenseList'
+import LicensePageClient from './LicensePageClient'
 
 export default async function HomePage() {
   if (!(await isAuthed())) redirect('/login')
@@ -17,8 +16,7 @@ export default async function HomePage() {
         </div>
       </header>
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        <IssueForm />
-        <LicenseList />
+        <LicensePageClient />
       </main>
     </div>
   )
