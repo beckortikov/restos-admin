@@ -13,6 +13,8 @@ interface Item {
   issued_at: string
   notes: string | null
   account_id: string | null
+  grace_days: number | null
+  warning_days: number | null
 }
 
 interface Props {
@@ -74,6 +76,7 @@ export default function LicenseList({ onExtend }: Props) {
                 <th className="text-left py-2 pr-3">Сеть</th>
                 <th className="text-left py-2 pr-3">Машина</th>
                 <th className="text-left py-2 pr-3">Тариф</th>
+                <th className="text-left py-2 pr-3">Grace+Warn</th>
                 <th className="text-left py-2 pr-3">До</th>
                 <th className="text-left py-2 pr-3">Статус</th>
                 <th className="text-right py-2"></th>
@@ -109,6 +112,9 @@ export default function LicenseList({ onExtend }: Props) {
                       <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-semibold uppercase">
                         {it.edition}
                       </span>
+                    </td>
+                    <td className="py-2 pr-3 text-xs text-gray-600 whitespace-nowrap font-mono">
+                      {(it.grace_days ?? 0)}+{(it.warning_days ?? 0)}д
                     </td>
                     <td className="py-2 pr-3 text-gray-600 whitespace-nowrap">
                       {new Date(it.expires_at).toLocaleDateString('ru-RU')}

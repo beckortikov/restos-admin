@@ -18,6 +18,8 @@ export interface Payload {
   ed?: Edition                // edition
   mid?: string                // machine_id (fingerprint железа)
   aid?: string                // account_id (сеть владельца, Phase 1 multi-branch)
+  grace_days?: number         // v2.1.3: warning-период после exp. 0 = hard lock.
+  warning_days?: number       // v2.1.3: lock-период после grace. 0 = lock сразу.
 }
 
 export const CURRENT_VERSION = 1
@@ -39,6 +41,9 @@ export function signToken(privBase64Std: string, p: Omit<Payload, 'v'> & { v?: n
   if (p.ed) payload.ed = p.ed
   if (p.mid) payload.mid = p.mid
   if (p.aid) payload.aid = p.aid
+  // omitempty parity с Go: пропускаем когда 0.
+  if (p.grace_days && p.grace_days > 0) payload.grace_days = p.grace_days
+  if (p.warning_days && p.warning_days > 0) payload.warning_days = p.warning_days
 
   const body = JSON.stringify(payload)
   const bodyEnc = base64UrlEncode(Buffer.from(body, 'utf-8'))

@@ -75,6 +75,23 @@ cd ../restos-v4/server && go run ./cmd/license-gen keypair
 ⚠️ После смены keypair все ранее выписанные токены **перестанут работать** —
 клиенты должны заново активироваться. Делай только при компрометации.
 
+## Grace + Warning (v2.1.3+)
+
+При выписке можно задать:
+
+- `grace_days` — сколько дней после `expires_at` софт работает с «жёлтой» warning-плашкой. `0` = hard lock сразу (default).
+- `warning_days` — после grace ещё сколько дней с «красной» плашкой «Истекла» (write-ops отказываются). `0` = lock сразу после grace.
+
+Пресеты в форме: **Hard lock (0+0)**, **Лояльный (3+0)**, **Стандарт (7+7)**, **VIP (14+14)**.
+
+Поля попадают в Ed25519-payload как `grace_days` / `warning_days` (snake_case, omitempty при 0 — байт-в-байт с Go `json:"grace_days,omitempty"`). Старые токены без полей = `0/0` на стороне restos-server (secure-by-default).
+
+Накати миграцию (idempotent ALTER уже в `schema.sql`):
+
+```bash
+psql "$DATABASE_URL" -f schema.sql
+```
+
 ## Neon schema
 
 Применить один раз (уже сделано для текущего проекта):

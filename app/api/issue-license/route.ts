@@ -11,6 +11,8 @@ interface Body {
   days?: number
   notes?: string
   account_id?: string  // Phase 1 multi-branch — владелец сети
+  grace_days?: number  // v2.1.3 — warning-период после exp
+  warning_days?: number // v2.1.3 — lock-период после grace
 }
 
 export async function POST(req: Request) {
@@ -34,6 +36,8 @@ export async function POST(req: Request) {
   }
 
   const days = Math.max(1, Math.min(3650, Number(b.days ?? 365)))
+  const graceDays = Math.max(0, Math.min(365, Number(b.grace_days ?? 0)))
+  const warningDays = Math.max(0, Math.min(365, Number(b.warning_days ?? 0)))
   const now = new Date()
   const expires = daysFromNow(days)
 
@@ -46,6 +50,8 @@ export async function POST(req: Request) {
       ed: edition,
       mid: b.machine_id.trim(),
       aid: b.account_id?.trim() || undefined,
+      grace_days: graceDays > 0 ? graceDays : undefined,
+      warning_days: warningDays > 0 ? warningDays : undefined,
     })
   } catch (e: any) {
     return NextResponse.json({ error: 'sign failed: ' + (e?.message ?? e) }, { status: 500 })
@@ -64,12 +70,15 @@ export async function POST(req: Request) {
       notes: b.notes?.trim() || null,
       issued_by: 'admin',
       account_id: b.account_id?.trim() || null,
+      grace_days: graceDays,
+      warning_days: warningDays,
     })
   } catch (e: any) {
     // Если БД упала — токен всё равно валиден, просто без audit-записи.
     // Возвращаем warning в response.
     return NextResponse.json({
       token, edition, expires_at: expires.toISOString(),
+      grace_days: graceDays, warning_days: warningDays,
       warning: 'license issued but audit save failed: ' + (e?.message ?? e),
     })
   }
@@ -78,5 +87,7 @@ export async function POST(req: Request) {
     token,
     edition,
     expires_at: expires.toISOString(),
+    grace_days: graceDays,
+    warning_days: warningDays,
   })
 }

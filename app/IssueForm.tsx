@@ -19,6 +19,8 @@ export default function IssueForm({ prefill, onConsumePrefill }: Props) {
   const [expiryMode, setExpiryMode] = useState<ExpiryMode>('days')
   const [days, setDays] = useState(365)
   const [expiryDate, setExpiryDate] = useState('')
+  const [graceDays, setGraceDays] = useState(7)
+  const [warningDays, setWarningDays] = useState(7)
   const [notes, setNotes] = useState('')
   const [token, setToken] = useState('')
   const [error, setError] = useState('')
@@ -84,6 +86,8 @@ export default function IssueForm({ prefill, onConsumePrefill }: Props) {
           days: effectiveDays,
           notes: notes.trim() || undefined,
           account_id: accountId.trim() || undefined,
+          grace_days: graceDays,
+          warning_days: warningDays,
         }),
       })
       const data = await res.json()
@@ -207,6 +211,59 @@ export default function IssueForm({ prefill, onConsumePrefill }: Props) {
                 className="flex-1 px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             )}
+          </div>
+        </div>
+        <div className="md:col-span-2 border-t pt-3 mt-1">
+          <div className="text-xs font-medium text-gray-600 uppercase mb-2">
+            Grace + Warning (что после exp)
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500">Grace дней (warning)</label>
+              <input
+                type="number" min={0} max={365} value={graceDays}
+                onChange={e => setGraceDays(Math.max(0, Math.min(365, Number(e.target.value) || 0)))}
+                placeholder="0"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                После expires софт работает с warning. 0 = hard lock сразу.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">Warning дней (lock)</label>
+              <input
+                type="number" min={0} max={365} value={warningDays}
+                onChange={e => setWarningDays(Math.max(0, Math.min(365, Number(e.target.value) || 0)))}
+                placeholder="0"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                После grace ещё с red banner. Потом lock.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2 text-xs">
+            {([
+              ['Hard lock (0+0)', 0, 0],
+              ['Лояльный (3+0)', 3, 0],
+              ['Стандарт (7+7)', 7, 7],
+              ['VIP (14+14)', 14, 14],
+            ] as const).map(([label, g, w]) => {
+              const active = graceDays === g && warningDays === w
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => { setGraceDays(g); setWarningDays(w) }}
+                  className={`px-2.5 py-1 rounded-md border transition-colors ${active
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </div>
         <div className="md:col-span-2">
